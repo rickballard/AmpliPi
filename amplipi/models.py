@@ -38,6 +38,7 @@ class fields(SimpleNamespace):
   ZoneId = Field(ge=0, le=35)
   Mute = Field(description='Set to true if output is muted')
   Volume = Field(ge=-79, le=0, description='Output volume in dB')
+  ZoneVolOffset = Field(ge=-79, le=0, description='Zone volume offset in dB')
   GroupMute = Field(description='Set to true if output is all zones muted')
   GroupVolume = Field(ge=-79, le=0, description='Average input volume in dB')
   Disabled = Field(description='Set to true if not connected to a speaker')
@@ -59,6 +60,7 @@ class fields_w_default(SimpleNamespace):
   SourceId = Field(default=0, ge=0, le=3, description='id of the connected source')
   Mute = Field(default=True, description='Set to true if output is muted')
   Volume = Field(default=-79, ge=-79, le=0, description='Output volume in dB')
+  ZoneVolOffset = Field(default=0, ge=-79, le=0, description='Zone volume offset in dB')
   GroupMute = Field(default=True, description='Set to true if output is all zones muted')
   GroupVolume = Field(default=-79, ge=-79, le=0, description='Average utput volume in dB')
   Disabled = Field(default=False, description='Set to true if not connected to a speaker')
@@ -186,6 +188,7 @@ class Zone(Base):
   source_id: int = fields_w_default.SourceId
   mute: bool = fields_w_default.Mute
   vol: int = fields_w_default.Volume
+  vol_offset: int = fields_w_default.ZoneVolOffset
   disabled: bool = fields_w_default.Disabled
 
   def as_update(self) -> 'ZoneUpdate':
@@ -203,6 +206,7 @@ class Zone(Base):
             'source_id': 1,
             'mute' : False,
             'vol':-25,
+            'vol_offset':0,
             'disabled': False,
           }
         },
@@ -212,6 +216,7 @@ class Zone(Base):
             'source_id': 2,
             'mute' : True,
             'vol':-65,
+            'vol_offset':0,
             'disabled': False,
           }
         },
@@ -223,6 +228,7 @@ class ZoneUpdate(BaseUpdate):
   source_id: Optional[int] = fields.SourceId
   mute: Optional[bool] = fields.Mute
   vol: Optional[int] = fields.Volume
+  vol_offset: Optional[int] = fields.ZoneVolOffset
   disabled: Optional[bool] = fields.Disabled
 
   class Config:
@@ -242,6 +248,11 @@ class ZoneUpdate(BaseUpdate):
         'Increase Volume': {
           'value': {
             'vol': -45
+          }
+        },
+        'Add Volume Offset': {
+          'value': {
+            'vol_offset': -3
           }
         },
         'Mute': {
@@ -797,18 +808,18 @@ class Status(BaseModel):
             ],
             'info': { 'version': '0.0.1'},
             'zones': [
-              {'disabled': False, 'id': 0,  'mute': False, 'name': 'Local', 'source_id': 1, 'vol': -35},
-              {'disabled': False, 'id': 1,  'mute': False, 'name': 'Office', 'source_id': 0, 'vol': -41},
-              {'disabled': False, 'id': 2,  'mute': True,  'name': 'Laundry Room', 'source_id': 0, 'vol': -48},
-              {'disabled': False, 'id': 3,  'mute': True,  'name': 'Dining Room', 'source_id': 0, 'vol': -44},
-              {'disabled': True,  'id': 4,  'mute': True,  'name': 'BROKEN', 'source_id': 0, 'vol': -50},
-              {'disabled': False, 'id': 5,  'mute': True,  'name': 'Guest Bedroom', 'source_id': 0, 'vol': -48},
-              {'disabled': False, 'id': 6,  'mute': True,  'name': 'Main Bedroom', 'source_id': 0, 'vol': -40},
-              {'disabled': False, 'id': 7,  'mute': True,  'name': 'Main Bathroom', 'source_id': 0, 'vol': -44},
-              {'disabled': False, 'id': 8,  'mute': True,  'name': 'Master Bathroom', 'source_id': 0, 'vol': -41},
-              {'disabled': False, 'id': 9,  'mute': True,  'name': 'Kitchen High', 'source_id': 0, 'vol': -53},
-              {'disabled': False, 'id': 10, 'mute': True,  'name': 'kitchen Low', 'source_id': 0, 'vol': -52},
-              {'disabled': False, 'id': 11, 'mute': True,  'name': 'Living Room', 'source_id': 0, 'vol': -46}
+              {'disabled': False, 'id': 0,  'mute': False, 'name': 'Local',           'source_id': 1, 'vol': -35, 'vol_offset': 0},
+              {'disabled': False, 'id': 1,  'mute': False, 'name': 'Office',          'source_id': 0, 'vol': -41, 'vol_offset': 0},
+              {'disabled': False, 'id': 2,  'mute': True,  'name': 'Laundry Room',    'source_id': 0, 'vol': -48, 'vol_offset': 0},
+              {'disabled': False, 'id': 3,  'mute': True,  'name': 'Dining Room',     'source_id': 0, 'vol': -44, 'vol_offset': 0},
+              {'disabled': True,  'id': 4,  'mute': True,  'name': 'BROKEN',          'source_id': 0, 'vol': -50, 'vol_offset': 0},
+              {'disabled': False, 'id': 5,  'mute': True,  'name': 'Guest Bedroom',   'source_id': 0, 'vol': -48, 'vol_offset': 0},
+              {'disabled': False, 'id': 6,  'mute': True,  'name': 'Main Bedroom',    'source_id': 0, 'vol': -40, 'vol_offset': 0},
+              {'disabled': False, 'id': 7,  'mute': True,  'name': 'Main Bathroom',   'source_id': 0, 'vol': -44, 'vol_offset': 0},
+              {'disabled': False, 'id': 8,  'mute': True,  'name': 'Master Bathroom', 'source_id': 0, 'vol': -41, 'vol_offset': 0},
+              {'disabled': False, 'id': 9,  'mute': True,  'name': 'Kitchen High',    'source_id': 0, 'vol': -53, 'vol_offset': 0},
+              {'disabled': False, 'id': 10, 'mute': True,  'name': 'kitchen Low',     'source_id': 0, 'vol': -52, 'vol_offset': 0},
+              {'disabled': False, 'id': 11, 'mute': True,  'name': 'Living Room',     'source_id': 0, 'vol': -46, 'vol_offset': 0}
             ]
           }
         }

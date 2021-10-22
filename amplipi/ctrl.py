@@ -246,7 +246,7 @@ class Api:
     #   we mute all zones on startup to keep audio from playing immediately at startup
     for zone in self.status.zones:
       # TODO: disable zones that are not found and add zones that are found
-      zone_update = models.ZoneUpdate(source_id=zone.source_id, mute=True, vol=zone.vol)
+      zone_update = models.ZoneUpdate(source_id=zone.source_id, mute=True, vol=zone.vol, vol_offset=zone.vol_offset)
       self.set_zone(zone.id, zone_update, force_update=True, internal=True)
     # configure all of the groups (some fields may need to be updated)
     self._update_groups()
@@ -450,10 +450,12 @@ class Api:
       source_id, update_source_id = utils.updated_val(update.source_id, zone.source_id)
       mute, update_mutes = utils.updated_val(update.mute, zone.mute)
       vol, update_vol = utils.updated_val(update.vol, zone.vol)
+      vol_offset, update_vol_offset = utils.updated_val(update.vol_offset, zone.vol_offset)
       disabled, _ = utils.updated_val(update.disabled, zone.disabled)
       try:
         sid = utils.parse_int(source_id, [0, 1, 2, 3])
         vol = utils.parse_int(vol, range(-79, 79)) # hold additional state for group delta volume adjustments, output volume will be saturated to 0dB
+        vol_offset = utils.parse_int(vol_offset, range(-79, 1))
         zones = self.status.zones
         # update non hw state
         zone.name = name
@@ -475,9 +477,10 @@ class Api:
             raise Exception('set zone failed: unable to update zone mute')
 
         def set_vol():
-          real_vol = utils.clamp(vol, -79, 0)
+          real_vol = utils.clamp(vol + vol_offset, -79, 0)
           if self._rt.update_zone_vol(idx, real_vol):
             zone.vol = vol
+            zone.vol_offset = vol_offset
           else:
             raise Exception('set zone failed: unable to update zone volume')
 
@@ -485,14 +488,15 @@ class Api:
         # If muting, mute before setting volumes
         # If un-muting, set desired volume first
         try:
-          if force_update or (update_mutes and update_vol):
+          vol_changing = update_vol or update_vol_offset
+          if force_update or (update_mutes and vol_changing):
             if mute:
               set_mute()
               set_vol()
             else:
               set_vol()
               set_mute()
-          elif update_vol:
+          elif vol_changing:
             set_vol()
           elif update_mutes:
             set_mute()
