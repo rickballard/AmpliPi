@@ -40,7 +40,7 @@ class fields(SimpleNamespace):
   Volume = Field(ge=-79, le=0, description='Output volume in dB')
   ZoneVolOffset = Field(ge=-79, le=0, description='Zone volume offset in dB')
   GroupMute = Field(description='Set to true if output is all zones muted')
-  GroupVolume = Field(ge=-79, le=0, description='Average input volume in dB')
+  GroupVolume = Field(ge=-79, le=0, description='Average output volume in dB')
   Disabled = Field(description='Set to true if not connected to a speaker')
   Zones = Field(description='Set of zone ids belonging to a group')
   Groups = Field(description='List of group ids')
@@ -54,7 +54,7 @@ class fields(SimpleNamespace):
 class fields_w_default(SimpleNamespace):
   """ AmpliPi's field types that need a default value
 
-  These are needed because there is ambiguity where and optional field has a default value
+  These are needed because there is ambiguity where an optional field has a default value
   """
   # TODO: less duplication
   SourceId = Field(default=0, ge=0, le=3, description='id of the connected source')
@@ -62,7 +62,7 @@ class fields_w_default(SimpleNamespace):
   Volume = Field(default=-79, ge=-79, le=0, description='Output volume in dB')
   ZoneVolOffset = Field(default=0, ge=-79, le=0, description='Zone volume offset in dB')
   GroupMute = Field(default=True, description='Set to true if output is all zones muted')
-  GroupVolume = Field(default=-79, ge=-79, le=0, description='Average utput volume in dB')
+  GroupVolume = Field(default=-79, ge=-79, le=0, description='Average output volume in dB')
   Disabled = Field(default=False, description='Set to true if not connected to a speaker')
 
 class Base(BaseModel):
@@ -245,7 +245,7 @@ class ZoneUpdate(BaseUpdate):
             'source-id': 3
           }
         },
-        'Increase Volume': {
+        'Change Volume': {
           'value': {
             'vol': -45
           }
@@ -293,7 +293,7 @@ class MultiZoneUpdate(BaseModel):
     }
 
 class Group(Base):
-  """ A group of zones that can share the same audio input and be controlled as a group ie. Updstairs.
+  """ A group of zones that can share the same audio input and be controlled as a group ie. Upstairs.
 
   Volume, mute, and source_id fields are aggregates of the member zones."""
   source_id: Optional[int] = fields.SourceId

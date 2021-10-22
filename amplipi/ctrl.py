@@ -557,7 +557,7 @@ class Api:
 
   def set_group(self, gid, update: models.GroupUpdate, internal: bool = False) -> ApiResponse:
     """Configures an existing group
-        parameters will be used to configure each sone in the group's zones
+        parameters will be used to configure each zone in the group's zones
         all parameters besides the group id, @id, are optional
 
         Args:
