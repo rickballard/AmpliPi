@@ -349,6 +349,11 @@ $(function() {
           <label for="disabled_state">Disabled</label>
           <small id="disHelp" class="form-text text-muted">Disabling a zone removes its mute and volume controls. A zone should be disabled if it isn't going to be used, or has no speakers connected to it</small>
         </div>
+        <div class="form-group">
+          <label for="name">Volume Offset</label>
+          <input type="number" class="form-control" name="vol_offset" value="${z.vol_offset}">
+          <small id="offHelp" class="form-text text-muted">The volume offset can reduce the volume of the zone. The zone's final volume will be the set volume + volume offset.</small>
+        </div>
       `;
 
       html += `
