@@ -24,7 +24,7 @@ from enum import Enum
 import subprocess
 import sys
 import time
-from typing import List
+from typing import List, Union
 
 # Third-party imports
 from serial import Serial
@@ -301,44 +301,79 @@ class Preamps:
       self.preamps.append(p)
     print(f'Found {len(self.preamps)} preamp(s)')
 
-  def flash(self, filepath: str, num_units: int, baud: int = 115200) -> bool:
-    """ Flash all available preamps with a given file """
+  def program(self, filepath: str, unit: int = 0, baud: int = 115200) -> bool:
+    """ Attempt to program a single AmpliPi unit
+
+        This function assumes any previous units exist,
+        but does not assume the requested unit exists.
+        If it does not exist then this function will return False.
+    """
+
+    # If the unit is running print its current version info
+    preamp = Preamp(unit, self._bus)
+    present = preamp.available()
+    if present:
+      print(f"Unit {unit}'s old firmware version: {preamp.read_version()}")
+
+    # Reset into bootloader mode and check if bootloader can be communicated to
+    print(f"Resetting unit {unit} and starting execution in bootloader ROM")
+    self.reset(unit = unit, bootloader = True)
+    if not present:
+      present = subprocess.run([f'stm32flash -b {baud} {PI_SERIAL_PORT}'],
+                                shell=True, check=False).returncode == 0
+    if not present:
+      # Unit not found, give up
+      # TODO: retry?
+      print(f"Couldn't communicate to unit {unit}'s bootloader, stopping programming")
+      return False
+
+    # Set UART passthrough on any previous units
+    for p in range(unit):
+      print(f"Setting unit {p}'s UART as passthrough")
+      self.preamps[p].uart_passthrough(True)
+
+    # For now the firmware can only pass through 9600 buad to expanders
+    baud = 9600 if unit > 0 else baud # -g0
+    success = subprocess.run([f'stm32flash -vb {baud} -w {filepath} {PI_SERIAL_PORT}'],
+                              shell=True, check=False) == 0
+    if not success:
+      # TODO: Error handling
+      print(f'Error programming unit {unit}, stopping programming')
+
+    # Successfully programmed unit, reset to exit bootloader
+    print('Resetting all preamps and starting execution in user flash')
+    self.reset()
+
+    # Verify newly programmed unit communicates
+    if preamp.available():
+      print(f"Unit {unit}'s new firmware version: {preamp.read_version()}")
+    else:
+      # Can't communicate to unit, give up
+      # TODO: retry?
+      print(f"Couldn't communicate to unit {unit} after programming, stopping programming")
+      return False
+
+    # Programming succeeded!
+    return True
+
+  def program_all(self, filepath: str, num_units: Union[None, int], baud: int = 115200) -> bool:
+    """ Program all available preamps with a given file
+        If num_units is not None, programming will stop after num_units
+    """
 
     if baud not in self.BAUD_RATES:
       raise ValueError(f'Baud rate must be one of {self.BAUD_RATES}')
 
-    for unit in range(num_units):
-      # If the unit was previously able to be communicated to,
-      # read the version and print it.
-      ver_str = ''
-      if unit < len(self.preamps):
-        fw_ver = self.preamps[unit].read_version()
-        ver_str = f'(version {fw_ver}) '
-      print(f"Resetting unit {unit}'s preamp {ver_str}and starting execution in bootloader ROM")
-      self.reset(unit = unit, bootloader = True)
-      for p in range(unit): # Set UART passthrough on any previous units
-        print(f'Setting unit {p} as passthrough')
-        self.preamps[p].uart_passthrough(True)
-      if unit > 0: # For now the firmware can only pass through 9600 buad to expanders
-        baud = 9600
-      flash_result = subprocess.run([f'stm32flash -vb {baud} -w {filepath} {PI_SERIAL_PORT}'], shell=True, check=False)
-      success = flash_result.returncode == 0
-      if not success:
-        # TODO: Error handling
-        print(f'Error flashing unit {unit}, stopping programming')
-      print('Resetting all preamps and starting execution in user flash')
-      self.reset()
-
-      # If the programming was successful it was just added to the list of preamps
-      if unit < len(self.preamps):
-        fw_ver = self.preamps[unit].read_version()
-        print(f"Unit {unit}'s new version: {fw_ver}")
-      elif success:
-        success = False
-        print(f"Can't communicate with unit {unit}, stopping programming")
-
-      if not success:
-        break
+    # Success considerations:
+    #   1. Programmed unit count is >= the number of previous units that enumerated.
+    #      It is possible, but unlikely, that some units didn't work before and didn't get fixed with the program.
+    #   2. If num_units is not None, programmed units == num_units
+    #   3. If a failure occurs during actual programming, fail out
+    prog_next = True
+    unit = 0
+    while prog_next:
+      success = self.program(filepath, unit)
+      prog_next =
     return success
 
 
@@ -366,15 +401,7 @@ if __name__ == '__main__':
   preamps = Preamps(args.reset)
 
   if args.flash is not None:
-    # Default to attempting to flash all units found.
-    num_units = len(preamps)
-    if args.num_units is not None:
-      # Override auto-detected preamp count
-      num_units = args.num_units
-    if num_units <= 0:
-      # Always try to flash at least 1 unit
-      num_units = 1
-    if not preamps.flash(filepath = args.flash, num_units = num_units, baud = args.baud):
+    if not preamps.program_all(filepath = args.flash, num_units = args.num_units, baud = args.baud):
       sys.exit(2)
 
 
